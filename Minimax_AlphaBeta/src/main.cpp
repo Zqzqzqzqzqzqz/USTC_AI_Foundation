@@ -13,7 +13,7 @@ constexpr int kDraw = 0;
 constexpr int kOWin = -1;
 constexpr int kOngoing = 2;
 
-struct SearchResult {
+struct SearchResult {// 搜索结果
     int best_move = -1;
     int value = kDraw;
     long long minimax_nodes = 0;
@@ -38,7 +38,7 @@ struct Board {
         return true;
     }
 
-    std::vector<int> getLegalMoves() const {
+    std::vector<int> getLegalMoves() const { // 获取合法落子列
         std::vector<int> moves;
         for (int col = 0; col < kCols; ++col) {
             if (grid[0][col] == '.') {
@@ -48,7 +48,7 @@ struct Board {
         return moves;
     }
 
-    Board applyMove(int col) const {
+    Board applyMove(int col) const {    // 在 col 列落子
         Board next = *this;
         for (int row = kRows - 1; row >= 0; --row) {
             if (next.grid[row][col] == '.') {
@@ -70,7 +70,7 @@ struct Board {
     }
 };
 
-bool hasConnectFour(const Board& board, char piece) {
+bool hasConnectFour(const Board& board, char piece) {  //判断结果
     const int dr[4] = {1, 0, 1, 1};
     const int dc[4] = {0, 1, 1, -1};
 
@@ -124,8 +124,21 @@ int minimaxValue(const Board& board, long long& nodes) {
     // 1. 生成 board 的所有合法落子列。
     // 2. 若当前行动方为 X，则返回所有后继状态值中的最大值。
     // 3. 若当前行动方为 O，则返回所有后继状态值中的最小值。
-    int value = kDraw;
-    return value;
+    const std::vector<int> moves = board.getLegalMoves();
+
+    if (board.current_player == 'X') {
+        int value = std::numeric_limits<int>::min();
+        for (int col : moves) {
+            value = std::max(value, minimaxValue(board.applyMove(col), nodes)); //选max
+        }
+        return value;
+    } else {
+        int value = std::numeric_limits<int>::max();
+        for (int col : moves) {
+            value = std::min(value, minimaxValue(board.applyMove(col), nodes));
+        }
+        return value;
+    }
 }
 
 int alphaBetaValue(const Board& board, int alpha, int beta, long long& nodes) {
@@ -143,8 +156,26 @@ int alphaBetaValue(const Board& board, int alpha, int beta, long long& nodes) {
     //    - 若当前行动方为 O，可初始化为一个足够大的值。
     // 3. 注意：后继展开顺序必须是从左到右。
     // 4. 注意：返回值必须与 minimax 完全一致。
-    int value = kDraw;
-    return value;
+
+    const std::vector<int> moves = board.getLegalMoves();
+
+    if (board.current_player == 'X') {
+        int value = std::numeric_limits<int>::min();
+        for (int col : moves) {
+            value = std::max(value, alphaBetaValue(board.applyMove(col), alpha, beta, nodes));
+            if (value >= beta) break;   // β 剪枝：O 不会让局面到这里
+            alpha = std::max(alpha, value);
+        }
+        return value;
+    } else {
+        int value = std::numeric_limits<int>::max();
+        for (int col : moves) {
+            value = std::min(value, alphaBetaValue(board.applyMove(col), alpha, beta, nodes));
+            if (value <= alpha) break;   // α 剪枝：X 不会让局面到这里  
+            beta = std::min(beta, value);
+        }
+        return value;
+    }
 }
 
 SearchResult solveWithMinimax(const Board& board) {
@@ -156,6 +187,25 @@ SearchResult solveWithMinimax(const Board& board) {
     // 2. 若当前行动方为 X，选择值最大的动作；若为 O，选择值最小的动作。
     // 3. 若存在多个同样最优的动作，保留列编号最小的那个。
     // 4. 累计 result.minimax_nodes。
+    if (board.current_player == 'X') {
+        result.value = std::numeric_limits<int>::min();
+        for (int col : moves) {
+            int v = minimaxValue(board.applyMove(col), result.minimax_nodes);  //选max
+            if (v > result.value) {
+                result.value = v;
+                result.best_move = col;
+            }
+        }
+    } else {
+        result.value = std::numeric_limits<int>::max();
+        for (int col : moves) {
+            int v = minimaxValue(board.applyMove(col), result.minimax_nodes);  //选min
+            if (v < result.value) {
+                result.value = v;
+                result.best_move = col;
+            }
+        }
+    }
     return result;
 }
 
@@ -168,6 +218,30 @@ SearchResult solveWithAlphaBeta(const Board& board) {
     // 2. 在根节点也维护 alpha / beta。
     // 3. 若存在多个同样最优的动作，保留列编号最小的那个。
     // 4. 累计 result.alphabeta_nodes。
+    int alpha = std::numeric_limits<int>::min();
+    int beta = std::numeric_limits<int>::max();
+
+    if (board.current_player == 'X') {
+        result.value = std::numeric_limits<int>::min();
+        for (int col : moves) {
+            int v = alphaBetaValue(board.applyMove(col), alpha, beta, result.alphabeta_nodes);
+            if (v > result.value) {
+                result.value = v;
+                result.best_move = col;
+            }
+            alpha = std::max(alpha, result.value);
+        }
+    } else {
+        result.value = std::numeric_limits<int>::max();
+        for (int col : moves) {
+            int v = alphaBetaValue(board.applyMove(col), alpha, beta, result.alphabeta_nodes);
+            if (v < result.value) {
+                result.value = v;
+                result.best_move = col;
+            }
+            beta = std::min(beta, result.value);
+        }
+    }
     return result;
 }
 
@@ -213,6 +287,12 @@ int main(int argc, char* argv[]) {
     // TODO:
     // 两种搜索的 best_move 和 value 应完全一致。
     // 可在此加入一致性检查。
+    if (minimax_result.best_move != alphabeta_result.best_move ||
+        minimax_result.value != alphabeta_result.value) {
+        std::cerr << "不一致: minimax(" << minimax_result.best_move
+                  << "," << minimax_result.value << ") vs alphabeta("
+                  << alphabeta_result.best_move << "," << alphabeta_result.value << ")\n";
+    }
 
     SearchResult final_result;
     final_result.best_move = minimax_result.best_move;
