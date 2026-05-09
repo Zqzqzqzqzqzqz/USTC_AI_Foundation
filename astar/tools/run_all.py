@@ -26,9 +26,9 @@ def main():
         run(["./basic_astar", str(input_path.relative_to(root)), str(Path("base_output") / out_name)], root)
         run(["./advanced_astar", str(input_path.relative_to(root)), str(Path("advanced_output") / out_name)], root)
 
-    run(["python", "tools/evaluate_base.py", "--input", "input", "--output", "base_output"], root)
-    run(["python", "tools/evaluate_advanced.py", "--input", "input", "--base_output", "base_output", "--advanced_output", "advanced_output"], root)
-    run(["python", "tools/visualize.py", "--input", "input/input_0.txt", "--base", "base_output/output_0.txt", "--advanced", "advanced_output/output_0.txt", "--save", "vis_0.png"], root)
+    run(["python3", "tools/evaluate_base.py", "--input", "input", "--output", "base_output"], root)
+    run(["python3", "tools/evaluate_advanced.py", "--input", "input", "--base_output", "base_output", "--advanced_output", "advanced_output"], root)
+    run(["python3", "tools/visualize.py", "--input", "input/input_0.txt", "--base", "base_output/output_0.txt", "--advanced", "advanced_output/output_0.txt", "--save", "vis_0.png"], root)
 
 
 if __name__ == "__main__":

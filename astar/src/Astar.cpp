@@ -111,8 +111,6 @@ vector<Point> reconstructPath(const Scene& scene, const vector<int>& parent) {
 }
 
 vector<Point> astar(const Scene& scene) {
-    auto occ = buildOccupancy(scene);
-    if (!freeCell(scene, occ, scene.start) || !freeCell(scene, occ, scene.goal)) return {};
     
     // TODO 3: 实现A*主循环。
     // 要求:
@@ -124,6 +122,9 @@ vector<Point> astar(const Scene& scene) {
     // 6. 找到goal后调用reconstructPath(scene, parent)返回路径。
     //
     // 下面这些变量已经准备好，可直接使用。
+    auto occ = buildOccupancy(scene);
+    if (!freeCell(scene, occ, scene.start) || !freeCell(scene, occ, scene.goal)) return {}; 
+
     const int total = scene.X * scene.Y * scene.Z;
     vector<int> g(total, numeric_limits<int>::max());
     vector<int> parent(total, -1);
