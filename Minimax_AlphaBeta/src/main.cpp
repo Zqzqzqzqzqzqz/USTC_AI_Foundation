@@ -72,7 +72,7 @@ struct Board {
 
 bool hasConnectFour(const Board& board, char piece) {  //判断结果
     const int dr[4] = {1, 0, 1, 1};
-    const int dc[4] = {0, 1, 1, -1};
+    const int dc[4] = {0, 1, 1, -1};// (1, 0)向下  (0, 1)向右  （1, 1)右下对角线  （1, -1)：左下对角线
 
     for (int row = 0; row < kRows; ++row) {
         for (int col = 0; col < kCols; ++col) {

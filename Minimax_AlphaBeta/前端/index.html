@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connect Four — AI 对战</title>
+<style>
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Page ── */
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 24px;
+  background: #0d1117;
+  color: #e6edf3;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  user-select: none;
+}
+
+h1 { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; }
+h1 span { color: #1f6feb; }
+
+/* ── Legend ── */
+#legend { display: flex; gap: 28px; font-size: 0.9rem; color: #8b949e; }
+.legend-item { display: flex; align-items: center; gap: 8px; }
+.legend-dot { width: 16px; height: 16px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Status bar ── */
+#status-bar {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 1.05rem; font-weight: 600; min-height: 32px;
+  padding: 6px 18px; border-radius: 20px;
+  background: #161b22; border: 1px solid #30363d;
+  transition: border-color 0.3s;
+}
+#status-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; transition: background 0.3s; }
+
+/* ── Board wrapper ── */
+#board-wrap { display: flex; flex-direction: column; align-items: center; }
+
+/* ── Preview row ── */
+#preview-row {
+  display: grid;
+  grid-template-columns: repeat(7, 72px);
+  column-gap: 8px;
+  padding: 0 14px;
+  height: 48px;
+  align-items: center;
+}
+.preview-cell { width: 72px; height: 36px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.preview-piece {
+  width: 44px; height: 44px; border-radius: 50%;
+  opacity: 0; transform: scale(0.85);
+  transition: opacity 0.15s, transform 0.15s;
+  pointer-events: none;
+}
+.preview-cell:hover .preview-piece.active { opacity: 0.55; transform: scale(1); }
+
+/* ── Board ── */
+#board {
+  background: #1f6feb;
+  display: grid;
+  grid-template-columns: repeat(7, 72px);
+  grid-template-rows: repeat(6, 72px);
+  gap: 8px; padding: 14px; border-radius: 14px;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.06), 0 16px 48px rgba(0,0,0,0.6),
+              inset 0 1px 0 rgba(255,255,255,0.12);
+  cursor: pointer;
+}
+
+/* ── Pieces ── */
+.cell { width: 72px; height: 72px; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+.piece {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: #040d21;
+  box-shadow: inset 0 4px 14px rgba(0,0,0,0.8), inset 0 -1px 3px rgba(255,255,255,0.04);
+  will-change: transform;
+}
+.piece.X {
+  background: radial-gradient(circle at 38% 32%, #ff7b72, #c0392b);
+  box-shadow: 0 3px 12px rgba(192,57,43,0.55), inset 0 -2px 6px rgba(0,0,0,0.35);
+}
+.piece.O {
+  background: radial-gradient(circle at 38% 32%, #ffd166, #c9a000);
+  box-shadow: 0 3px 12px rgba(201,160,0,0.55), inset 0 -2px 6px rgba(0,0,0,0.35);
+}
+
+/* ── Drop animation ── */
+.piece.dropping { animation: drop 0.38s cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes drop {
+  from { transform: translateY(var(--drop-from, -400px)); }
+  to   { transform: translateY(0); }
+}
+
+/* ── Win pulse ── */
+.piece.win { animation: pulse 0.65s ease-in-out infinite alternate; }
+@keyframes pulse {
+  from { transform: scale(1);    filter: brightness(1);    }
+  to   { transform: scale(1.1); filter: brightness(1.45); }
+}
+
+/* ── Controls ── */
+#controls { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+#side-row { display: flex; align-items: center; gap: 10px; font-size: 0.88rem; color: #8b949e; }
+#side-toggle {
+  display: flex; background: #161b22;
+  border: 1px solid #30363d; border-radius: 8px; padding: 3px; gap: 3px;
+}
+.side-btn {
+  padding: 5px 16px; border: none; border-radius: 6px;
+  font-size: 0.88rem; font-weight: 600; cursor: pointer;
+  background: transparent; color: #8b949e;
+  transition: background 0.15s, color 0.15s;
+}
+.side-btn.active { background: #1f6feb; color: #fff; }
+.side-btn:not(.active):hover { background: #21262d; color: #e6edf3; }
+
+#btn-new {
+  padding: 9px 28px; border: none; border-radius: 8px;
+  font-size: 0.95rem; font-weight: 600; cursor: pointer;
+  background: #238636; color: #fff;
+  transition: background 0.15s, transform 0.1s;
+  box-shadow: 0 2px 8px rgba(35,134,54,0.3);
+}
+#btn-new:hover  { background: #2ea043; }
+#btn-new:active { transform: scale(0.97); }
+
+/* ── Difficulty ── */
+#diff-row { display: flex; align-items: center; gap: 10px; font-size: 0.88rem; color: #8b949e; }
+#diff-select {
+  background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+  color: #e6edf3; font-size: 0.88rem; padding: 4px 10px; cursor: pointer;
+}
+
+/* ── Thinking dots ── */
+#thinking { font-size: 0.85rem; color: #8b949e; letter-spacing: 0.03em; min-height: 1.2em; }
+#thinking.active::after { content: ''; animation: dots 1.2s steps(4, end) infinite; }
+@keyframes dots { 0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'} }
+
+/* ── Result overlay ── */
+#result-banner {
+  position: fixed; inset: 0; display: flex;
+  align-items: center; justify-content: center;
+  background: rgba(0,0,0,0); pointer-events: none;
+  transition: background 0.3s; z-index: 10;
+}
+#result-banner.show { background: rgba(0,0,0,0.55); pointer-events: auto; }
+#result-card {
+  background: #161b22; border: 1px solid #30363d; border-radius: 16px;
+  padding: 36px 48px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  transform: scale(0.8); opacity: 0;
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), opacity 0.25s;
+  box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+}
+#result-banner.show #result-card { transform: scale(1); opacity: 1; }
+#result-emoji { font-size: 3rem; }
+#result-title { font-size: 1.5rem; font-weight: 700; }
+#result-subtitle { font-size: 0.95rem; color: #8b949e; }
+#btn-play-again {
+  margin-top: 6px; padding: 10px 32px; border: none; border-radius: 8px;
+  font-size: 0.95rem; font-weight: 600; cursor: pointer;
+  background: #1f6feb; color: #fff; transition: background 0.15s;
+}
+#btn-play-again:hover { background: #388bfd; }
+</style>
+</head>
+<body>
+
+<h1>Connect <span>Four</span></h1>
+
+<div id="legend">
+  <div class="legend-item">
+    <div class="legend-dot" id="dot-human"></div>
+    <span id="label-human">你 (X · 红)</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" id="dot-ai"></div>
+    <span id="label-ai">AI (O · 黄)</span>
+  </div>
+</div>
+
+<div id="status-bar">
+  <div id="status-dot"></div>
+  <span id="status-text">初始化中…</span>
+</div>
+
+<div id="board-wrap">
+  <div id="preview-row"></div>
+  <div id="board"></div>
+</div>
+
+<div id="thinking"></div>
+
+<div id="controls">
+  <div id="side-row">
+    <span>执子：</span>
+    <div id="side-toggle">
+      <button class="side-btn active" id="btn-x" onclick="setSide('X')">先手 (红)</button>
+      <button class="side-btn"        id="btn-o" onclick="setSide('O')">后手 (黄)</button>
+    </div>
+  </div>
+  <div id="diff-row">
+    <span>难度：</span>
+    <select id="diff-select" onchange="setDepth(this.value)">
+      <option value="3">简单</option>
+      <option value="6">中等</option>
+      <option value="10" selected>困难</option>
+    </select>
+  </div>
+  <button id="btn-new" onclick="newGame()">新游戏</button>
+</div>
+
+<div id="result-banner">
+  <div id="result-card">
+    <div id="result-emoji"></div>
+    <div id="result-title"></div>
+    <div id="result-subtitle"></div>
+    <button id="btn-play-again" onclick="closeBanner(); newGame();">再来一局</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     AI Worker：此 script 标签的内容会被读取成字符串，创建为 Blob Worker。
+     浏览器不会直接执行它（type 不是 text/javascript）。
+     ═══════════════════════════════════════════════════════════════════════════ -->
+<script id="worker-src" type="text/js-worker">
+'use strict';
+const ROWS = 6, COLS = 7;
+const MOVE_ORDER = [3, 2, 4, 1, 5, 0, 6];
+const WIN = 1000000;
+
+/* ── 评分窗口 ── */
+function scoreWindow(x, o, e) {
+    if (x > 0 && o > 0) return 0;
+    if (x === 3 && e === 1) return 100;
+    if (o === 3 && e === 1) return -100;
+    if (x === 2 && e === 2) return 5;
+    if (o === 2 && e === 2) return -5;
+    return 0;
+}
+
+/* ── 启发式评估 ── */
+function heuristic(g) {
+    let s = 0;
+    const dirs = [[1,0],[0,1],[1,1],[1,-1]];
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            for (const [dr, dc] of dirs) {
+                let x = 0, o = 0, e = 0, valid = true;
+                for (let t = 0; t < 4; t++) {
+                    const nr = r + dr*t, nc = c + dc*t;
+                    if (nr < 0 || nr >= ROWS || nc < 0 || nc >= COLS) { valid = false; break; }
+                    const ch = g[nr][nc];
+                    if (ch === 'X') x++; else if (ch === 'O') o++; else e++;
+                }
+                if (valid) s += scoreWindow(x, o, e);
+            }
+        }
+    }
+    for (let r = 0; r < ROWS; r++) {
+        const ch = g[r][3];
+        if (ch === 'X') s += 3; else if (ch === 'O') s -= 3;
+    }
+    return s;
+}
+
+/* ── 胜负判断 ── */
+function hasWon(g, p) {
+    const dirs = [[1,0],[0,1],[1,1],[1,-1]];
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (g[r][c] !== p) continue;
+            for (const [dr, dc] of dirs) {
+                let ok = true;
+                for (let s = 1; s < 4; s++) {
+                    const nr = r+dr*s, nc = c+dc*s;
+                    if (nr<0||nr>=ROWS||nc<0||nc>=COLS||g[nr][nc]!==p) { ok=false; break; }
+                }
+                if (ok) return true;
+            }
+        }
+    }
+    return false;
+}
+
+function isFull(g) { return g[0].every(c => c !== '.'); }
+
+/* ── 落子（返回新棋盘，不修改原棋盘）── */
+function applyMove(g, col, piece) {
+    const next = g.map(row => row.slice());
+    for (let r = ROWS-1; r >= 0; r--) {
+        if (next[r][col] === '.') { next[r][col] = piece; break; }
+    }
+    return next;
+}
+
+function legalMoves(g) { return MOVE_ORDER.filter(c => g[0][c] === '.'); }
+
+/* ── Alpha-Beta 搜索 ── */
+function alphaBeta(g, player, alpha, beta, depth) {
+    if (hasWon(g, 'X')) return  WIN;
+    if (hasWon(g, 'O')) return -WIN;
+    if (isFull(g))      return  0;
+    if (depth === 0)    return  heuristic(g);
+
+    const next = player === 'X' ? 'O' : 'X';
+    const moves = legalMoves(g);
+
+    if (player === 'X') {
+        let v = -Infinity;
+        for (const col of moves) {
+            v = Math.max(v, alphaBeta(applyMove(g, col, player), next, alpha, beta, depth-1));
+            if (v >= beta) break;
+            alpha = Math.max(alpha, v);
+        }
+        return v;
+    } else {
+        let v = Infinity;
+        for (const col of moves) {
+            v = Math.min(v, alphaBeta(applyMove(g, col, player), next, alpha, beta, depth-1));
+            if (v <= alpha) break;
+            beta = Math.min(beta, v);
+        }
+        return v;
+    }
+}
+
+/* ── 根节点求最优落子 ── */
+function bestMove(player, grid, depth) {
+    const moves = legalMoves(grid);
+    let alpha = -Infinity, beta = Infinity;
+    let best = moves[0];
+    let bestVal = player === 'X' ? -Infinity : Infinity;
+    const nextPlayer = player === 'X' ? 'O' : 'X';
+
+    for (const col of moves) {
+        const v = alphaBeta(applyMove(grid, col, player), nextPlayer, alpha, beta, depth-1);
+        if (player === 'X') {
+            if (v > bestVal) { bestVal = v; best = col; }
+            alpha = Math.max(alpha, bestVal);
+        } else {
+            if (v < bestVal) { bestVal = v; best = col; }
+            beta = Math.min(beta, bestVal);
+        }
+    }
+    return best;
+}
+
+/* ── Worker 消息入口 ── */
+self.onmessage = function(e) {
+    const { player, grid, depth } = e.data;
+    const col = bestMove(player, grid, depth);
+    self.postMessage({ col });
+};
+</script>
+
+<script>
+'use strict';
+// ─────────────────────────────────────────────────────────────────────────────
+// 常量 & 配置
+// ─────────────────────────────────────────────────────────────────────────────
+const ROWS = 6, COLS = 7;
+const CELL_SIZE = 72, GAP = 8, PAD = 14;
+
+const COLOR = {
+    X: { grad: 'radial-gradient(circle at 38% 32%, #ff7b72, #c0392b)', glow: '#c0392b' },
+    O: { grad: 'radial-gradient(circle at 38% 32%, #ffd166, #c9a000)', glow: '#c9a000' },
+};
+
+let aiDepth = 10;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Web Worker（从页面内的 script 标签读取代码，避免外部文件依赖）
+// ─────────────────────────────────────────────────────────────────────────────
+const workerSrc  = document.getElementById('worker-src').textContent;
+const workerBlob = new Blob([workerSrc], { type: 'application/javascript' });
+const workerURL  = URL.createObjectURL(workerBlob);
+let worker       = new Worker(workerURL);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 游戏状态
+// ─────────────────────────────────────────────────────────────────────────────
+let grid, currentPlayer, humanPiece, aiPiece, gameOver, isThinking;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 构建 DOM（只执行一次）
+// ─────────────────────────────────────────────────────────────────────────────
+function buildDOM() {
+    const board   = document.getElementById('board');
+    const preview = document.getElementById('preview-row');
+    board.innerHTML = preview.innerHTML = '';
+
+    for (let c = 0; c < COLS; c++) {
+        const pc = document.createElement('div');
+        pc.className = 'preview-cell';
+
+        const pp = document.createElement('div');
+        pp.className = 'preview-piece';
+        pp.id = `preview-${c}`;
+        pc.appendChild(pp);
+
+        pc.addEventListener('mouseenter', () => showPreview(c));
+        pc.addEventListener('mouseleave', () => hidePreview(c));
+        pc.addEventListener('click',      () => handleClick(c));
+        preview.appendChild(pc);
+    }
+
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+
+            const piece = document.createElement('div');
+            piece.className = 'piece';
+            piece.id = `p-${r}-${c}`;
+            cell.appendChild(piece);
+
+            cell.addEventListener('click',      () => handleClick(c));
+            cell.addEventListener('mouseenter', () => showPreview(c));
+            cell.addEventListener('mouseleave', () => hidePreview(c));
+            board.appendChild(cell);
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 预览指示器
+// ─────────────────────────────────────────────────────────────────────────────
+function showPreview(col) {
+    if (gameOver || isThinking || currentPlayer !== humanPiece) return;
+    if (grid[0][col] !== '.') return;
+    const pp = document.getElementById(`preview-${col}`);
+    if (pp) { pp.style.background = COLOR[humanPiece].grad; pp.classList.add('active'); }
+}
+function hidePreview(col) {
+    const pp = document.getElementById(`preview-${col}`);
+    if (pp) pp.classList.remove('active');
+}
+function clearPreviews() { for (let c = 0; c < COLS; c++) hidePreview(c); }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 游戏逻辑（在主线程中用于终局/胜负检测，AI 搜索在 Worker 中）
+// ─────────────────────────────────────────────────────────────────────────────
+function lowestEmpty(col) {
+    for (let r = ROWS-1; r >= 0; r--)
+        if (grid[r][col] === '.') return r;
+    return -1;
+}
+
+function checkWin(row, col, piece) {
+    const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+    for (const [dr, dc] of dirs) {
+        const line = [[row, col]];
+        for (const sign of [-1, 1]) {
+            let r = row+sign*dr, c = col+sign*dc;
+            while (r>=0 && r<ROWS && c>=0 && c<COLS && grid[r][c]===piece) {
+                line.push([r, c]); r+=sign*dr; c+=sign*dc;
+            }
+        }
+        if (line.length >= 4) return line;
+    }
+    return null;
+}
+
+function isDraw() { return grid[0].every(c => c !== '.'); }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 落子 & 动画
+// ─────────────────────────────────────────────────────────────────────────────
+function placePiece(row, col, piece, animate) {
+    grid[row][col] = piece;
+    const el = document.getElementById(`p-${row}-${col}`);
+
+    if (animate) {
+        const dropFrom = -((row * (CELL_SIZE + GAP)) + PAD + CELL_SIZE / 2 + 50);
+        el.style.setProperty('--drop-from', `${dropFrom}px`);
+    }
+    el.className = 'piece ' + piece + (animate ? ' dropping' : '');
+    if (animate) el.addEventListener('animationend', () => el.classList.remove('dropping'), { once: true });
+
+    const winLine = checkWin(row, col, piece);
+    const delay   = animate ? 420 : 0;
+
+    if (winLine) {
+        gameOver = true;
+        setTimeout(() => {
+            winLine.forEach(([r, c]) => document.getElementById(`p-${r}-${c}`).classList.add('win'));
+            const isHuman = piece === humanPiece;
+            showBanner(isHuman ? '🎉' : '🤖',
+                       isHuman ? '你赢了！' : 'AI 赢了！',
+                       isHuman ? '恭喜，你打败了 AI！' : '别气馁，再试试吧。');
+        }, delay);
+        setStatus('游戏结束', null);
+        return;
+    }
+
+    if (isDraw()) {
+        gameOver = true;
+        setTimeout(() => showBanner('🤝', '平局！', '势均力敌，再来一局吧。'), delay);
+        setStatus('游戏结束', null);
+        return;
+    }
+
+    currentPlayer = (currentPlayer === 'X') ? 'O' : 'X';
+    updateStatus();
+    if (currentPlayer === aiPiece && !gameOver)
+        setTimeout(triggerAI, delay);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 玩家点击
+// ─────────────────────────────────────────────────────────────────────────────
+function handleClick(col) {
+    if (gameOver || isThinking || currentPlayer !== humanPiece) return;
+    const row = lowestEmpty(col);
+    if (row === -1) return;
+    clearPreviews();
+    placePiece(row, col, humanPiece, true);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AI（通过 Web Worker 异步计算，不阻塞 UI）
+// ─────────────────────────────────────────────────────────────────────────────
+function triggerAI() {
+    if (gameOver) return;
+    isThinking = true;
+    clearPreviews();
+    setStatus('AI 思考中', aiPiece);
+    const th = document.getElementById('thinking');
+    th.textContent = 'AI 正在思考';
+    th.classList.add('active');
+
+    // 把当前棋盘（2D char 数组）发给 Worker
+    worker.postMessage({ player: aiPiece, grid: grid.map(r => r.slice()), depth: aiDepth });
+}
+
+worker.onmessage = function(e) {
+    isThinking = false;
+    const th = document.getElementById('thinking');
+    th.textContent = '';
+    th.classList.remove('active');
+
+    if (gameOver) return;
+    const col = e.data.col;
+    const row = lowestEmpty(col);
+    if (row !== -1) placePiece(row, col, aiPiece, true);
+};
+
+worker.onerror = function(err) {
+    isThinking = false;
+    document.getElementById('thinking').textContent = '';
+    console.error('Worker error:', err);
+    setStatus('AI 出错，请刷新页面', null);
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// UI 工具函数
+// ─────────────────────────────────────────────────────────────────────────────
+function setStatus(text, piece) {
+    document.getElementById('status-text').textContent = text;
+    const dot = document.getElementById('status-dot');
+    if (piece) {
+        dot.style.background = COLOR[piece].glow;
+        dot.style.boxShadow  = `0 0 6px ${COLOR[piece].glow}`;
+        dot.style.display    = 'block';
+    } else {
+        dot.style.display = 'none';
+    }
+}
+
+function updateStatus() {
+    if (currentPlayer === humanPiece) setStatus('你的回合', humanPiece);
+    else                              setStatus('AI 的回合', aiPiece);
+}
+
+function showBanner(emoji, title, subtitle) {
+    document.getElementById('result-emoji').textContent    = emoji;
+    document.getElementById('result-title').textContent    = title;
+    document.getElementById('result-subtitle').textContent = subtitle;
+    document.getElementById('result-banner').classList.add('show');
+}
+
+function closeBanner() {
+    document.getElementById('result-banner').classList.remove('show');
+}
+
+function updateLegend() {
+    document.getElementById('dot-human').style.background = COLOR[humanPiece].grad;
+    document.getElementById('dot-ai').style.background    = COLOR[aiPiece].grad;
+    document.getElementById('label-human').textContent =
+        humanPiece === 'X' ? '你 (X · 红)' : '你 (O · 黄)';
+    document.getElementById('label-ai').textContent =
+        aiPiece === 'X' ? 'AI (X · 红)' : 'AI (O · 黄)';
+    for (let c = 0; c < COLS; c++) {
+        const pp = document.getElementById(`preview-${c}`);
+        if (pp) pp.style.background = COLOR[humanPiece].grad;
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 新游戏 / 换边 / 难度
+// ─────────────────────────────────────────────────────────────────────────────
+function newGame() {
+    closeBanner();
+    // 如果 Worker 正在计算，终止并重新创建
+    if (isThinking) {
+        worker.terminate();
+        worker = new Worker(workerURL);
+        worker.onmessage = arguments.callee; // reassign below
+        setupWorkerHandlers();
+    }
+    grid          = Array.from({ length: ROWS }, () => Array(COLS).fill('.'));
+    currentPlayer = 'X';
+    gameOver      = false;
+    isThinking    = false;
+
+    document.getElementById('thinking').textContent = '';
+    document.getElementById('thinking').classList.remove('active');
+
+    for (let r = 0; r < ROWS; r++)
+        for (let c = 0; c < COLS; c++)
+            document.getElementById(`p-${r}-${c}`).className = 'piece';
+
+    updateStatus();
+    if (currentPlayer === aiPiece) setTimeout(triggerAI, 400);
+}
+
+function setSide(piece) {
+    humanPiece = piece;
+    aiPiece    = piece === 'X' ? 'O' : 'X';
+    document.getElementById('btn-x').classList.toggle('active', piece === 'X');
+    document.getElementById('btn-o').classList.toggle('active', piece === 'O');
+    updateLegend();
+    newGame();
+}
+
+function setDepth(val) {
+    aiDepth = parseInt(val, 10);
+}
+
+function setupWorkerHandlers() {
+    worker.onmessage = function(e) {
+        isThinking = false;
+        const th = document.getElementById('thinking');
+        th.textContent = '';
+        th.classList.remove('active');
+        if (gameOver) return;
+        const col = e.data.col;
+        const row = lowestEmpty(col);
+        if (row !== -1) placePiece(row, col, aiPiece, true);
+    };
+    worker.onerror = function(err) {
+        isThinking = false;
+        document.getElementById('thinking').textContent = '';
+        console.error('Worker error:', err);
+        setStatus('AI 出错，请刷新页面', null);
+    };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 初始化
+// ─────────────────────────────────────────────────────────────────────────────
+humanPiece = 'X';
+aiPiece    = 'O';
+buildDOM();
+updateLegend();
+setupWorkerHandlers();
+newGame();
+</script>
+</body>
+</html>
