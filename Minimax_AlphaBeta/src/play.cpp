@@ -1,8 +1,4 @@
-// play.cpp
-// 命令行人机对弈：人执 X，AI 执 O（或通过参数对调）。
-// AI 使用带走子排序的深度限制 alpha-beta + 启发式评估函数。
-//
-// 用法：
+// 命令行人机对弈
 //   ./play              人执 X 先手
 //   ./play O            人执 O，AI 执 X 先手
 
@@ -10,9 +6,9 @@
 
 constexpr int kWinScore  =  1000000;
 constexpr int kLossScore = -1000000;
-constexpr int kAiDepth   = 10;
+constexpr int kAiDepth   = 8;
 
-int abDepth(const Board& board, int alpha, int beta, int depth, long long& nodes) {
+int abDepth(const Board& board, int alpha, int beta, int depth, long long& nodes) {// alpha-beta 搜索，返回评估值
     ++nodes;
     const int tv = evaluateTerminal(board);
     if (tv != kOngoing) return tv * kWinScore;
@@ -63,22 +59,22 @@ int aiChooseMove(const Board& board) {
     return best_move;
 }
 
-int humanChooseMove(const Board& board) {
+int humanChooseMove(const Board& board) {// 从标准输入读取人类玩家的落子列，进行合法性检查
     while (true) {
-        std::cout << "Your move (0-6): ";
+        std::cout << "请落子 (0-6): ";
         int col;
         if (!(std::cin >> col)) {
             std::cin.clear();
             std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-            std::cout << "Invalid input.\n";
+            std::cout << "输入无效。\n";
             continue;
         }
         if (col < 0 || col >= kCols) {
-            std::cout << "Column out of range.\n";
+            std::cout << "列超出范围。\n";
             continue;
         }
         if (board.grid[0][col] != '.') {
-            std::cout << "Column " << col << " is full.\n";
+            std::cout << "第" << col << "列满了.\n";
             continue;
         }
         return col;
@@ -107,11 +103,11 @@ int main(int argc, char* argv[]) {
         const int tv = evaluateTerminal(board);
         if (tv != kOngoing) {
             if (tv == kXWin) {
-                std::cout << ((human_piece == 'X') ? "You win!\n" : "AI wins!\n");
+                std::cout << ((human_piece == 'X') ? "恭喜你赢了!\n" : "AI赢了!\n");
             } else if (tv == kOWin) {
-                std::cout << ((human_piece == 'O') ? "You win!\n" : "AI wins!\n");
+                std::cout << ((human_piece == 'O') ? "恭喜你赢了!\n" : "AI赢了!\n");
             } else {
-                std::cout << "Draw!\n";
+                std::cout << "平局!\n";
             }
             break;
         }
@@ -120,9 +116,9 @@ int main(int argc, char* argv[]) {
         if (board.current_player == human_piece) {
             col = humanChooseMove(board);
         } else {
-            std::cout << "AI is thinking (depth=" << kAiDepth << ")...\n";
+            std::cout << "AI正在思考：depth=" << kAiDepth << ")...\n";
             col = aiChooseMove(board);
-            std::cout << "AI plays column " << col << "\n";
+            std::cout << "提示：AI在第 " << col << "列落子\n";
         }
         board = board.applyMove(col);
         std::cout << '\n';

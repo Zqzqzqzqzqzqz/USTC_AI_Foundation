@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # run_advanced.sh — 编译并运行三个提高内容程序
-# 用法：bash run_advanced.sh [web|play|ordering|depth]
+# bash run_advanced.sh [web|play|ordering|depth]
 #   web    : 编译 web，启动 Web 服务（默认端口 8080）
 #   play     : 启动命令行人机对弈（可加 O 参数让 AI 先手）
 #   ordering : 对所有样例比较有序/无序 alpha-beta 节点数

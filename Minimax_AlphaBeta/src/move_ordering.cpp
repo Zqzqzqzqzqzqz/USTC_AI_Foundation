@@ -12,8 +12,8 @@ int abValue(const Board& board, int alpha, int beta, long long& nodes) {
     const int tv = evaluateTerminal(board);
     if (tv != kOngoing) return tv;
 
-    const std::vector<int> moves = board.getLegalMoves();
-    if (board.current_player == 'X') {
+    const std::vector<int> moves = board.getLegalMoves();//顺序是从左到右
+    if (board.current_player == 'X') {// X 作为先手，寻找最大值
         int v = std::numeric_limits<int>::min();
         for (int col : moves) {
             v = std::max(v, abValue(board.applyMove(col), alpha, beta, nodes));
@@ -38,8 +38,8 @@ int abValueOrdered(const Board& board, int alpha, int beta, long long& nodes) {
     const int tv = evaluateTerminal(board);
     if (tv != kOngoing) return tv;
 
-    const std::vector<int> moves = board.getLegalMovesOrdered();
-    if (board.current_player == 'X') {
+    const std::vector<int> moves = board.getLegalMovesOrdered();// 顺序是按照 kMoveOrder 从左到右
+    if (board.current_player == 'X') {// X 作为先手，寻找最大值
         int v = std::numeric_limits<int>::min();
         for (int col : moves) {
             v = std::max(v, abValueOrdered(board.applyMove(col), alpha, beta, nodes));
