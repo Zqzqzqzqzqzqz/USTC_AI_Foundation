@@ -278,7 +278,6 @@ vector<Point> advancedPlan(const Scene& scene) {
         double curF = curG + heuristic(curP, goalP);
         if (cur.f > curF + 1e-9) {
             // 这是一条过期记录，但因为我们没有维护严格 closed 集合，
-            // 这里直接继续扩展也能保证收敛（A* 的正确性由 g 值的单调更新保证）。
         }
 
         for (auto& d : dirs) {
@@ -288,8 +287,8 @@ vector<Point> advancedPlan(const Scene& scene) {
             if (!inBound(nx, ny, nz)) continue;
             if (occ[nx][ny][nz]) continue;            // 撞到（膨胀后的）障碍物
 
-            // 26 邻域的对角移动需要确保经过的"边/角"附近也是空的，
-            // 否则会出现夹缝穿越。这里简单做一下：要求移动方向上经过的几个格子都不被占据。
+            // 26 邻域的对角移动需要确保经过的"边/角"附近也是空的，否则会出现夹缝穿越。
+            // 要求移动方向上经过的几个格子都不被占据。
             // 对于 dx,dy,dz 中非零分量，逐一检查替换为 0 后的格子。
             bool diagonalOk = true;
             int nonZero = (dx != 0) + (dy != 0) + (dz != 0);
